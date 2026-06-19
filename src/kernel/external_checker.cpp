@@ -42,11 +42,26 @@ extern "C" lean_object * lean_extern_mk_error(lean_object * kernel_exc) {
     return c;
 }
 
+extern "C" lean_object * lean_mk_empty_local_ctx(lean_object *);
+
+/* A null `Expr` field would be `lean_dec`'d when the exception is freed and
+   crash; substitute a fresh trivial `Expr` (`Prop`). The external checker passes
+   null for expr payloads its message does not render (e.g. the types in
+   `letTypeMismatch`); real exprs require expr export. */
+static inline lean_object * extern_expr_or_dummy(lean_object * e) {
+    return e ? e : lean::mk_Prop().steal();
+}
+
 extern "C" lean_object * lean_extern_mk_kernel_exception(
         uint32_t code, lean_object * env, lean_object * lctx, lean_object * name,
         lean_object * decl, lean_object * e0, lean_object * e1, lean_object * e2,
         lean_object * msg) {
     lean_object * c;
+    /* lctx-carrying variants need a real `LocalContext`; the external checker may
+       pass null to mean "empty" rather than reconstruct one. */
+    if (lctx == nullptr &&
+        (code == 5 || code == 6 || code == 7 || code == 8 || code == 9 || code == 10))
+        lctx = lean_mk_empty_local_ctx(lean_box(0));
     switch (code) {
     case 0:  /* unknownConstant env name */
         c = lean_alloc_ctor(0, 2, 0);
@@ -58,46 +73,46 @@ extern "C" lean_object * lean_extern_mk_kernel_exception(
         return c;
     case 2:  /* declTypeMismatch env decl givenType */
         c = lean_alloc_ctor(2, 3, 0);
-        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, decl); lean_ctor_set(c, 2, e0);
+        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, decl); lean_ctor_set(c, 2, extern_expr_or_dummy(e0));
         return c;
     case 3:  /* declHasMVars env name expr */
         c = lean_alloc_ctor(3, 3, 0);
-        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, name); lean_ctor_set(c, 2, e0);
+        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, name); lean_ctor_set(c, 2, extern_expr_or_dummy(e0));
         return c;
     case 4:  /* declHasFVars env name expr */
         c = lean_alloc_ctor(4, 3, 0);
-        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, name); lean_ctor_set(c, 2, e0);
+        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, name); lean_ctor_set(c, 2, extern_expr_or_dummy(e0));
         return c;
     case 5:  /* funExpected env lctx expr */
         c = lean_alloc_ctor(5, 3, 0);
-        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, e0);
+        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, extern_expr_or_dummy(e0));
         return c;
     case 6:  /* typeExpected env lctx expr */
         c = lean_alloc_ctor(6, 3, 0);
-        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, e0);
+        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, extern_expr_or_dummy(e0));
         return c;
     case 7:  /* letTypeMismatch env lctx name givenType expectedType */
         c = lean_alloc_ctor(7, 5, 0);
         lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, name);
-        lean_ctor_set(c, 3, e0); lean_ctor_set(c, 4, e1);
+        lean_ctor_set(c, 3, extern_expr_or_dummy(e0)); lean_ctor_set(c, 4, extern_expr_or_dummy(e1));
         return c;
     case 8:  /* exprTypeMismatch env lctx expr expectedType */
         c = lean_alloc_ctor(8, 4, 0);
-        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, e0);
-        lean_ctor_set(c, 3, e1);
+        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, extern_expr_or_dummy(e0));
+        lean_ctor_set(c, 3, extern_expr_or_dummy(e1));
         return c;
     case 9:  /* appTypeMismatch env lctx app funType argType */
         c = lean_alloc_ctor(9, 5, 0);
-        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, e0);
-        lean_ctor_set(c, 3, e1); lean_ctor_set(c, 4, e2);
+        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, extern_expr_or_dummy(e0));
+        lean_ctor_set(c, 3, extern_expr_or_dummy(e1)); lean_ctor_set(c, 4, extern_expr_or_dummy(e2));
         return c;
     case 10: /* invalidProj env lctx proj */
         c = lean_alloc_ctor(10, 3, 0);
-        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, e0);
+        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, lctx); lean_ctor_set(c, 2, extern_expr_or_dummy(e0));
         return c;
     case 11: /* thmTypeIsNotProp env name type */
         c = lean_alloc_ctor(11, 3, 0);
-        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, name); lean_ctor_set(c, 2, e0);
+        lean_ctor_set(c, 0, env); lean_ctor_set(c, 1, name); lean_ctor_set(c, 2, extern_expr_or_dummy(e0));
         return c;
     case 12: /* other msg */
         c = lean_alloc_ctor(12, 1, 0);

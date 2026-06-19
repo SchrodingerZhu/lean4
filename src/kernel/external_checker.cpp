@@ -44,6 +44,17 @@ extern "C" lean_object * lean_extern_mk_error(lean_object * kernel_exc) {
 
 extern "C" lean_object * lean_mk_empty_local_ctx(lean_object *);
 
+/* Exported wrappers over the inline `lean_alloc_ctor`/`lean_ctor_set` so an
+   external checker (which links against liblean by symbol) can build the small
+   constructors it needs when exporting expressions (List.cons, Literal, FVarId).
+   The inline originals are not linkable symbols. */
+extern "C" LEAN_EXPORT lean_object * lean_extern_alloc_ctor(unsigned tag, unsigned num_objs) {
+    return lean_alloc_ctor(tag, num_objs, 0);
+}
+extern "C" LEAN_EXPORT void lean_extern_ctor_set(lean_object * o, unsigned i, lean_object * v) {
+    lean_ctor_set(o, i, v);
+}
+
 /* A null `Expr` field would be `lean_dec`'d when the exception is freed and
    crash; substitute a fresh trivial `Expr` (`Prop`). The external checker passes
    null for expr payloads its message does not render (e.g. the types in

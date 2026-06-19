@@ -78,6 +78,24 @@ void check_interrupted() {
     }
 }
 
+// Cooperative tick for an external kernel checker that uses its own allocator
+// (so Lean's allocation-driven heartbeat never advances inside it). Bumps the
+// thread-local heartbeat by `n` and reports whether to abort. Non-throwing:
+// aborts are returned as status codes, never thrown across the FFI boundary.
+extern "C" LEAN_EXPORT int32_t lean_kernel_tick(uint64_t n, int32_t * reason) {
+    g_heartbeat += static_cast<size_t>(n);
+    if (g_max_heartbeat > 0 && g_heartbeat > g_max_heartbeat) {
+        if (reason) *reason = 13;  // deterministicTimeout
+        return 13;
+    }
+    if (g_cancel_tk && cancel_tk_is_set(g_cancel_tk)) {
+        if (reason) *reason = 16;  // interrupted
+        return 16;
+    }
+    if (reason) *reason = 0;
+    return 0;
+}
+
 void check_system(char const * component_name, bool do_check_interrupted) {
     check_stack(component_name);
     check_memory(component_name);

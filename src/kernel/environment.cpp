@@ -16,6 +16,7 @@ Author: Leonardo de Moura
 #include "kernel/kernel_exception.h"
 #include "kernel/type_checker.h"
 #include "kernel/quot.h"
+#include "kernel/external_checker.h"
 
 namespace lean {
 extern "C" object* lean_environment_add(object*, object*);
@@ -257,6 +258,36 @@ environment environment::add_mutual(declaration const & d, bool check) const {
 }
 
 environment environment::add(declaration const & d, bool check) const {
+    if (check && external_checker_active()) {
+        // Delegate checking to the external checker. It owns `env` and borrows
+        // `decl`; it returns `Except Kernel.Exception Environment`. The error is a
+        // prebuilt Lean `Kernel.Exception` carried through `catch_kernel_exceptions`
+        // by `lean_kernel_exception_wrapper`. The heartbeat/cancel scopes set up by
+        // the FFI entry are already active, so the checker's `tick` observes them.
+        //
+        // On success the checker must return an environment that has the new
+        // constant *actually added*, not just verified: this internal environment
+        // remains authoritative for everything the external checker does NOT take
+        // over. In particular the `whnf`/`check` primitives are optional in the
+        // contract (an NbE checker typically leaves them NULL, see external_checker.h),
+        // so the builtin kernel still serves those calls and needs every constant
+        // present here to unfold definitions and infer types. The rest of Lean
+        // (elaboration, code generation, `.olean` export) likewise reads this env.
+        lean_external_checker_callbacks const & cbs = get_external_checker();
+        object * res = cbs.add_decl(cbs.self, to_obj_arg(), get_max_heartbeat(),
+                                    d.raw(), lean_box(0));
+        if (cnstr_tag(res) == 1) {  // Except.ok newEnv
+            object * new_env = cnstr_get(res, 0);
+            inc(new_env);
+            dec(res);
+            return environment(new_env);
+        } else {                    // Except.error e
+            object * e = cnstr_get(res, 0);
+            inc(e);
+            dec(res);
+            throw lean_kernel_exception_wrapper(e);
+        }
+    }
     switch (d.kind()) {
     case declaration_kind::Axiom:            return add_axiom(d, check);
     case declaration_kind::Definition:       return add_definition(d, check);

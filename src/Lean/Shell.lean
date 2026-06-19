@@ -168,6 +168,7 @@ def displayHelp (useStderr : Bool) : IO Unit := do
     out.putStrLn  "      --worker           start lean in server-worker mode"
   out.putStrLn    "      --plugin=file[=fn] load and initialize Lean shared library for registering linters etc."
   out.putStrLn    "      --load-dynlib=file load shared library to make its symbols available to the interpreter"
+  out.putStrLn    "      --external-checker-lib=file  load shared library as a drop-in external kernel type-checker"
   out.putStrLn    "      --setup=file       JSON file with module setup data (supersedes the file's header)"
   out.putStrLn    "      --json             report Lean output (e.g., messages) as JSON (one per line)"
   out.putStrLn    "  -E, --error=kind       report Lean messages of kind as errors"
@@ -430,6 +431,11 @@ def ShellOptions.process (opts : ShellOptions)
     let arg ← checkOptArg "l" optArg?
     Lean.loadDynlib arg
     let forwardedArgs := opts.forwardedArgs.push s!"-l{arg}"
+    return {opts with forwardedArgs}
+  | 'X' => -- `--external-checker-lib=file`
+    let arg ← checkOptArg "X" optArg?
+    Lean.loadExternalChecker arg
+    let forwardedArgs := opts.forwardedArgs.push s!"-X{arg}"
     return {opts with forwardedArgs}
   | 'u' => -- `--setup=file`
     return {opts with setupFileName? := ← checkOptArg "u" optArg?}

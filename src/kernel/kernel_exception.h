@@ -149,6 +149,20 @@ public:
     expr const & get_proj() const { return m_proj; }
 };
 
+/* Carries a prebuilt Lean `Kernel.Exception` produced by an external checker, so
+   it can pass through `catch_kernel_exceptions` and become `Except.error` without
+   reconstructing a typed C++ exception. Owns a reference to the exception object. */
+class lean_kernel_exception_wrapper : public exception {
+    object * m_exc;
+public:
+    explicit lean_kernel_exception_wrapper(object * exc):
+        exception("external kernel exception"), m_exc(exc) {}
+    lean_kernel_exception_wrapper(lean_kernel_exception_wrapper const & other):
+        exception(other), m_exc(other.m_exc) { if (m_exc) inc(m_exc); }
+    ~lean_kernel_exception_wrapper() { if (m_exc) dec(m_exc); }
+    object * get_exception() const { return m_exc; }
+};
+
 /*
 Helper function for interfacing C++ code with code written in Lean.
 It executes closure `f` which produces an object_ref of type `A` and may throw
@@ -162,6 +176,13 @@ object * catch_kernel_exceptions(std::function<A()> const & f) {
     try {
         A a = f();
         return mk_cnstr(1, a).steal();
+    } catch (lean_kernel_exception_wrapper & ex) {
+        // Prebuilt Kernel.Exception from an external checker: wrap as Except.error.
+        object * e = ex.get_exception();
+        inc(e);
+        object * r = lean_alloc_ctor(0, 1, 0);
+        lean_ctor_set(r, 0, e);
+        return r;
     } catch (unknown_constant_exception & ex) {
         // 0  | unknownConstant  (env : Environment) (name : Name)
         return mk_cnstr(0, mk_cnstr(0, ex.env(), ex.get_name())).steal();

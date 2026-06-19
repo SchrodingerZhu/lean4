@@ -10,6 +10,7 @@ Author: Leonardo de Moura, Mac Malone
 #include "runtime/sstream.h"
 #include "runtime/exception.h"
 #include "library/dynlib.h"
+#include "kernel/external_checker.h"
 
 #ifdef LEAN_WINDOWS
 #include <windows.h>
@@ -117,6 +118,16 @@ extern "C" LEAN_EXPORT obj_res lean_dynlib_get(b_obj_arg dynlib, b_obj_arg name)
 extern "C" LEAN_EXPORT obj_res lean_dynlib_symbol_run_as_init(b_obj_arg /* dynlib */, b_obj_arg sym) {
     auto init_fn = reinterpret_cast<object *(*)(uint8_t)>(symbol_ptr(sym));
     return init_fn(1 /* builtin */);
+}
+
+/* Dynlib.Symbol.runAsExternalChecker : {Dynlib} -> Symbol -> IO Bool
+
+   Treats `sym` as the external checker's `lean_external_check_populate_callbacks`
+   entry point and registers it. Returns `false` if the checker rejected the host
+   ABI version or is otherwise incompatible. */
+extern "C" LEAN_EXPORT obj_res lean_dynlib_symbol_run_as_external_checker(b_obj_arg /* dynlib */, b_obj_arg sym) {
+    uint8_t ok = lean_register_external_checker(symbol_ptr(sym));
+    return io_result_mk_ok(box(ok));
 }
 
 /* Lean.loadDynlib : System.FilePath -> IO Unit */

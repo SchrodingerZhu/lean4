@@ -11,6 +11,7 @@ add_library(
   local_ctx.cpp
   declaration.cpp
   environment.cpp
+  external_checker.cpp
   type_checker.cpp
   init_module.cpp
   expr_cache.cpp

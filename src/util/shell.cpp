@@ -187,6 +187,7 @@ static struct option g_long_options[] = {
 #endif
     {"plugin",       required_argument, 0, 'p'},
     {"load-dynlib",  required_argument, 0, 'l'},
+    {"external-checker-lib", required_argument, 0, 'X'},
     {"setup",        required_argument, 0, 'u'},
     {"error",        required_argument, 0, 'E'},
     {"json",         no_argument,       0, 'J'},
@@ -202,7 +203,7 @@ static struct option g_long_options[] = {
 };
 
 static char const * g_opt_str =
-    "PdD:o:i:b:c:C:qgvVht:012j:012rR:M:012T:012ap:eE:Y:Z:H:"
+    "PdD:o:i:b:c:C:qgvVht:012j:012rR:M:012T:012ap:eE:Y:Z:H:X:"
 #if defined(LEAN_MULTI_THREAD)
     "s:012"
 #endif

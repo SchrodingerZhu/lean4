@@ -116,3 +116,38 @@ def loadPlugin (path : System.FilePath) (initFn? : Option String := none) : IO U
     avoid accidentally mistaking non-plugins as plugins.
   -/
   unsafe sym.runAsInit
+
+/--
+Registers a symbol as an external kernel type-checker by invoking it as the
+contract's `lean_external_check_populate_callbacks` entry point. Returns `false`
+if the checker rejected the host ABI version or is otherwise incompatible.
+
+This is unsafe because there is no guarantee the symbol has the expected
+signature. An invalid symbol can thus produce undefined behavior.
+-/
+@[extern "lean_dynlib_symbol_run_as_external_checker"]
+unsafe opaque Dynlib.Symbol.runAsExternalChecker {dynlib : @& Dynlib} (sym : @& dynlib.Symbol) : IO Bool
+
+/--
+Loads a shared library implementing an external kernel type-checker and registers
+it as a drop-in replacement for the builtin kernel's declaration checking.
+
+The library must export `lean_external_check_populate_callbacks` (see
+`src/kernel/external_checker.h`). Equivalent to passing `--external-checker-lib=path`
+to `lean`.
+
+**Lean never unloads libraries.**
+-/
+@[export lean_load_external_checker]
+def loadExternalChecker (path : System.FilePath) : IO Unit := do
+  -- We never want to look up the library using the system library search.
+  let path ← IO.FS.realPath path
+  let dynlib ← Dynlib.load path
+  let some sym := dynlib.get? "lean_external_check_populate_callbacks"
+    | throw <| IO.userError s!"error loading external checker, entry point 'lean_external_check_populate_callbacks' not found in '{path}'"
+  -- Lean never unloads libraries.
+  -- Safety: There are no concurrent accesses to `dynlib` at this point.
+  let _ ← unsafe Runtime.markPersistent dynlib
+  let ok ← unsafe sym.runAsExternalChecker
+  unless ok do
+    throw <| IO.userError s!"external checker '{path}' rejected the host ABI version or is incompatible"

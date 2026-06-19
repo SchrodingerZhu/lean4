@@ -487,6 +487,13 @@ def shellMain (args : List String) (opts : ShellOptions) : IO UInt32 := do
   let timeout := timeout.get opts.leanOpts
   if timeout != 0 then
     Internal.setMaxHeartbeat (timeout.toUSize * 1000)
+  -- Allow loading the external checker via the `LEAN_EXTERNAL_CHECKER_OVERRIDE`
+  -- environment variable, in addition to `--external-checker-lib`. This applies
+  -- to language-server workers too (env vars propagate to subprocesses, so the
+  -- flag need not be forwarded). When both are set, the env var takes effect.
+  if let some path ← IO.getEnv "LEAN_EXTERNAL_CHECKER_OVERRIDE" then
+    if !path.isEmpty then
+      Lean.loadExternalChecker path
   match opts.component with
   | .frontend =>
     pure ()

@@ -30,12 +30,6 @@ lean_external_checker_callbacks const & get_external_checker() {
    external checker through the host table below, never resolved by symbol. */
 extern "C" int32_t lean_kernel_tick(uint64_t n, int32_t * reason);
 
-extern "C" lean_object * lean_extern_mk_ok(lean_object * value) {
-    lean_object * c = lean_alloc_ctor(1, 1, 0);  /* Except.ok */
-    lean_ctor_set(c, 0, value);
-    return c;
-}
-
 extern "C" lean_object * lean_extern_mk_error(lean_object * kernel_exc) {
     lean_object * c = lean_alloc_ctor(0, 1, 0);  /* Except.error */
     lean_ctor_set(c, 0, kernel_exc);
@@ -176,7 +170,6 @@ static lean_object * extern_builtin_add_unchecked(lean_object * env, lean_object
 static lean_external_checker_host const g_host = {
     LEAN_EXTERNAL_CHECKER_ABI_VERSION,
     &lean_kernel_tick,
-    &lean_extern_mk_ok,
     &lean_extern_mk_error,
     &lean_extern_mk_kernel_exception,
     &extern_find_const,

@@ -36,8 +36,6 @@ typedef struct {
        16 = interrupted). Writes the reason to `*reason` if non-NULL. Never throws. */
     int32_t (*tick)(uint64_t n, int32_t * reason);
 
-    /* Wrap a checked value as `Except.ok value` (consumes `value`). */
-    lean_object * (*mk_ok)(lean_object * value);
     /* Wrap an exception as `Except.error kernel_exc` (consumes `kernel_exc`). */
     lean_object * (*mk_error)(lean_object * kernel_exc);
     /* Build a `Kernel.Exception` (constructor index `code`, 0..16). Consumes the
@@ -88,15 +86,6 @@ typedef struct {
 
     lean_object * (*add_decl)(void * self, lean_object * env, size_t max_heartbeat,
                               lean_object * decl, lean_object * opt_cancel_tk);
-
-    /* Optional fast-path primitives (any may be NULL -> host keeps builtin).
-       Signatures mirror lean_kernel_whnf / lean_kernel_check / lean_kernel_is_def_eq. */
-    lean_object * (*whnf)     (void * self, lean_object * env, lean_object * lctx, lean_object * e);
-    lean_object * (*check)    (void * self, lean_object * env, lean_object * lctx, lean_object * e);
-    lean_object * (*is_def_eq)(void * self, lean_object * env, lean_object * lctx,
-                               lean_object * a, lean_object * b);
-
-    void (*release)(void * self);  /* teardown at shutdown; may be NULL */
 } lean_external_checker_callbacks;
 
 /* The one symbol the external `.so` must export. The host passes its callback

@@ -135,6 +135,17 @@ static lean_object * extern_builtin_add_decl(lean_object * env, size_t max_heart
     });
 }
 
+static void extern_inc(lean_object * o) { lean::inc(o); }
+static void extern_dec(lean_object * o) { lean::dec(o); }
+
+/* Add `decl` to `env` without checking and without external dispatch (check=false
+   skips both). Used after the external checker has verified the declaration. */
+static lean_object * extern_builtin_add_unchecked(lean_object * env, lean_object * decl) {
+    return lean::catch_kernel_exceptions<lean::environment>([&]() {
+        return lean::environment(env).add(lean::declaration(decl, true), false);
+    });
+}
+
 /* The host callback table handed to the external checker at registration. */
 static lean_external_checker_host const g_host = {
     LEAN_EXTERNAL_CHECKER_ABI_VERSION,
@@ -144,6 +155,9 @@ static lean_external_checker_host const g_host = {
     &lean_extern_mk_kernel_exception,
     &extern_find_const,
     &extern_builtin_add_decl,
+    &extern_inc,
+    &extern_dec,
+    &extern_builtin_add_unchecked,
 };
 
 extern "C" LEAN_EXPORT uint8_t lean_register_external_checker(void * populate_sym) {

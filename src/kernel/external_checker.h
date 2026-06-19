@@ -60,6 +60,19 @@ typedef struct {
        quotient, mutual) so the builtin kernel generates their recursors. */
     lean_object * (*builtin_add_decl)(lean_object * env, size_t max_heartbeat,
                                       lean_object * decl, lean_object * opt_cancel_tk);
+
+    /* Reference-counting for objects the checker owns transiently (e.g. the
+       `Option ConstantInfo` returned by `find_const`). These wrap Lean's
+       `static inline` `lean_inc`/`lean_dec`, which are not linkable symbols. */
+    void (*inc)(lean_object * o);
+    void (*dec)(lean_object * o);
+
+    /* Add a declaration to the environment WITHOUT type-checking it (and without
+       external dispatch). The external checker calls this after it has itself
+       checked a declaration, so the trusted env structure update happens once and
+       the declaration is not checked twice. Consumes `env`, borrows `decl`;
+       returns owned `Except Kernel.Exception Environment`. */
+    lean_object * (*builtin_add_unchecked)(lean_object * env, lean_object * decl);
 } lean_external_checker_host;
 
 /* Checker -> host callbacks. Filled by `populate`.

@@ -6,6 +6,9 @@ Author: Schrodinger ZHU Yifan
 */
 #include <cstring>
 #include "lean/lean.h"
+#include "runtime/interrupt.h"
+#include "kernel/declaration.h"
+#include "kernel/kernel_exception.h"
 #include "kernel/external_checker.h"
 
 namespace lean {
@@ -108,6 +111,30 @@ extern "C" lean_object * lean_extern_mk_kernel_exception(
     }
 }
 
+namespace lean {
+extern "C" object * lean_environment_find(object *, object *);
+}
+
+/* Look up a constant for lazy import. `env`/`name` are borrowed; returns an owned
+   `Option ConstantInfo`. */
+static lean_object * extern_find_const(lean_object * env, lean_object * name) {
+    lean::inc(env);
+    lean::inc(name);
+    return lean::lean_environment_find(env, name);
+}
+
+/* Add a declaration via the builtin kernel (bypassing external dispatch), so the
+   external checker can delegate inductive/quotient/mutual declarations. Mirrors
+   `lean_add_decl`. */
+static lean_object * extern_builtin_add_decl(lean_object * env, size_t max_heartbeat,
+                                             lean_object * decl, lean_object * opt_cancel_tk) {
+    lean::scope_max_heartbeat s(max_heartbeat);
+    lean::scope_cancel_tk s2(lean::is_scalar(opt_cancel_tk) ? nullptr : lean::cnstr_get(opt_cancel_tk, 0));
+    return lean::catch_kernel_exceptions<lean::environment>([&]() {
+        return lean::environment(env).add_builtin(lean::declaration(decl, true), true);
+    });
+}
+
 /* The host callback table handed to the external checker at registration. */
 static lean_external_checker_host const g_host = {
     LEAN_EXTERNAL_CHECKER_ABI_VERSION,
@@ -115,6 +142,8 @@ static lean_external_checker_host const g_host = {
     &lean_extern_mk_ok,
     &lean_extern_mk_error,
     &lean_extern_mk_kernel_exception,
+    &extern_find_const,
+    &extern_builtin_add_decl,
 };
 
 extern "C" LEAN_EXPORT uint8_t lean_register_external_checker(void * populate_sym) {

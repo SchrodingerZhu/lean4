@@ -288,6 +288,10 @@ environment environment::add(declaration const & d, bool check) const {
             throw lean_kernel_exception_wrapper(e);
         }
     }
+    return add_builtin(d, check);
+}
+
+environment environment::add_builtin(declaration const & d, bool check) const {
     switch (d.kind()) {
     case declaration_kind::Axiom:            return add_axiom(d, check);
     case declaration_kind::Definition:       return add_definition(d, check);

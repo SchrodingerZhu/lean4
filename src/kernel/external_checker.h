@@ -46,6 +46,20 @@ typedef struct {
     lean_object * (*mk_kernel_exception)(uint32_t code, lean_object * env, lean_object * lctx,
         lean_object * name, lean_object * decl, lean_object * e0, lean_object * e1,
         lean_object * e2, lean_object * msg);
+
+    /* Look up a constant in the kernel environment for lazy import. `env` and
+       `name` are borrowed; returns an owned `Option ConstantInfo` (a boxed
+       `none`, or `some` wrapping the ConstantInfo). Lets the external checker
+       pull in constants it has not yet imported (e.g. from `.olean` imports). */
+    lean_object * (*find_const)(lean_object * env, lean_object * name);
+
+    /* Add a declaration using the BUILTIN kernel, bypassing the external
+       checker. Same contract as `lean_add_decl` (consumes `env`, borrows `decl`/
+       `opt_cancel_tk`, returns owned `Except Kernel.Exception Environment`). The
+       external checker delegates declaration kinds it does not handle (inductive,
+       quotient, mutual) so the builtin kernel generates their recursors. */
+    lean_object * (*builtin_add_decl)(lean_object * env, size_t max_heartbeat,
+                                      lean_object * decl, lean_object * opt_cancel_tk);
 } lean_external_checker_host;
 
 /* Checker -> host callbacks. Filled by `populate`.

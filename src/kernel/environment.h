@@ -96,6 +96,11 @@ public:
     /** \brief Extends the current environment with the given declaration */
     environment add(declaration const & d, bool check = true) const;
 
+    /** \brief The builtin declaration-adding path (per-kind switch), bypassing any
+        registered external checker. Used both as the fallback in `add` and by the
+        external checker's `builtin_add_decl` callback. */
+    environment add_builtin(declaration const & d, bool check) const;
+
     /** \brief Apply the function \c f to each constant */
     void for_each_constant(std::function<void(constant_info const & d)> const & f) const;
 
